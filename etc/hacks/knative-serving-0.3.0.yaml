@@ -268,7 +268,7 @@ spec:
 ---
 apiVersion: extensions/v1beta1
 kind: Deployment
-metdata:
+metadata:
   name: activator
 spec:
   replicas: 1
