@@ -266,6 +266,187 @@ spec:
       protocol: HTTP
 
 ---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metdata:
+  name: activator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: activator
+      role: activator
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: activator
+        role: activator
+    spec:
+      containers:
+      - args:
+        - -logtostderr=false
+        - -stderrthreshold=FATAL
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        image: quay.io/openshift-knative/knative-0.3.0:knative-serving-activator
+        name: activator
+        ports:
+        - containerPort: 8080
+          name: activator-port
+        - containerPort: 9090
+          name: metrics-port
+        resources:
+          limits:
+            cpu: 200m
+            memory: 600Mi
+          requests:
+            cpu: 20m
+            memory: 60Mi
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
+        - mountPath: /etc/config-observability
+          name: config-observability
+      serviceAccountName: controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging
+      - configMap:
+          name: config-observability
+        name: config-observability
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: autoscaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: autoscaler
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+      labels:
+        app: autoscaler
+    spec:
+      containers:
+      - image: quay.io/openshift-knative/knative-0.3.0:knative-serving-autoscaler
+        name: autoscaler
+        ports:
+        - containerPort: 8080
+          name: websocket
+        - containerPort: 9090
+          name: metrics
+        resources:
+          limits:
+            cpu: 300m
+            memory: 400Mi
+          requests:
+            cpu: 30m
+            memory: 40Mi
+        volumeMounts:
+        - mountPath: /etc/config-autoscaler
+          name: config-autoscaler
+        - mountPath: /etc/config-logging
+          name: config-logging
+        - mountPath: /etc/config-observability
+          name: config-observability
+      serviceAccountName: controller
+      volumes:
+      - configMap:
+          name: config-autoscaler
+        name: config-autoscaler
+      - configMap:
+          name: config-logging
+        name: config-logging
+      - configMap:
+          name: config-observability
+        name: config-observability
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: controller
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: controller
+    spec:
+      containers:
+      - image: quay.io/openshift-knative/knative-0.3.0:knative-serving-controller
+        name: controller
+        ports:
+        - containerPort: 9090
+          name: metrics
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1000Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
+      serviceAccountName: controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook
+      role: webhook
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "false"
+      labels:
+        app: webhook
+        role: webhook
+    spec:
+      containers:
+      - image: quay.io/openshift-knative/knative-0.3.0:knative-serving-webhook
+        name: webhook
+        resources:
+          limits:
+            cpu: 200m
+            memory: 200Mi
+          requests:
+            cpu: 20m
+            memory: 20Mi
+        volumeMounts:
+        - mountPath: /etc/config-logging
+          name: config-logging
+      serviceAccountName: controller
+      volumes:
+      - configMap:
+          name: config-logging
+        name: config-logging
+---
+---
 apiVersion: v1
 kind: Service
 metadata:
